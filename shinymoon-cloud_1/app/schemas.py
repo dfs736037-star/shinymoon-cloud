@@ -5,18 +5,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 
-class SnapshotPayload(BaseModel):
-    version: int
-    pui: dict[str, Any]
-
-    @field_validator("pui")
-    @classmethod
-    def pui_not_empty(cls, value: dict[str, Any]) -> dict[str, Any]:
-        if not value:
-            raise ValueError("snapshot.pui must not be empty")
-        return value
-
-
 class ConfigCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=64)
     description: str = Field(default="", max_length=256)
@@ -24,7 +12,7 @@ class ConfigCreateRequest(BaseModel):
     author_xuid: str = Field(min_length=1, max_length=32)
     script_build: str = Field(default="", max_length=16)
     cfg_version: int = Field(default=1, ge=1)
-    snapshot: dict[str, Any]
+    snapshot: Any
 
     @field_validator("name")
     @classmethod
@@ -48,7 +36,10 @@ class ConfigCreateRequest(BaseModel):
     @field_validator("snapshot")
     @classmethod
     def validate_snapshot(cls, value: dict[str, Any]) -> dict[str, Any]:
-        SnapshotPayload.model_validate(value)
+        if not value:
+            raise ValueError("snapshot must not be empty")
+        if "pui" not in value and "version" not in value:
+            raise ValueError("snapshot missing config data")
         return value
 
 

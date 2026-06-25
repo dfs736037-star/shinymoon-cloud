@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -30,6 +31,18 @@ class ConfigCreateRequest(BaseModel):
     def name_has_word_char(cls, value: str) -> str:
         if not any(ch.isalnum() for ch in value):
             raise ValueError("name must contain at least one alphanumeric character")
+        return value
+
+    @field_validator("snapshot", mode="before")
+    @classmethod
+    def normalize_snapshot(cls, value: Any) -> dict[str, Any]:
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise ValueError("snapshot must be valid JSON") from exc
+        if not isinstance(value, dict):
+            raise ValueError("snapshot must be a dictionary")
         return value
 
     @field_validator("snapshot")

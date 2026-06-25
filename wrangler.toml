@@ -1,0 +1,6 @@
+name = "shinymoon-cloud-proxy"
+main = "src/index.js"
+compatibility_date = "2024-06-01"
+
+[vars]
+BACKEND = "https://shinymoon-cloud-production.up.railway.app"

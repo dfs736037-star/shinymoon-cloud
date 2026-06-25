@@ -4,7 +4,7 @@ import time
 from collections import defaultdict, deque
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ from app.schemas import (
     MessageResponse,
     SortField,
 )
+from pydantic import ValidationError
 
 UPLOAD_LIMIT = int(os.getenv("SHINymoon_UPLOAD_LIMIT_PER_HOUR", "10"))
 UPLOAD_WINDOW_SECONDS = 3600
@@ -124,7 +125,7 @@ def get_config(config_id: str, db: Session = Depends(get_db)) -> ConfigDetailRes
 
 @app.post("/v1/configs", response_model=ConfigCreateResponse)
 async def create_config(
-    payload: ConfigCreateRequest,
+    request: Request,
     db: Session = Depends(get_db),
     x_shinymoon_user: Optional[str] = Header(default=None, alias="X-Shinymoon-User"),
     x_shinymoon_xuid: Optional[str] = Header(default=None, alias="X-Shinymoon-Xuid"),
@@ -134,6 +135,17 @@ async def create_config(
     user, xuid = verify_auth_headers(
         x_shinymoon_user, x_shinymoon_xuid, x_shinymoon_timestamp, x_shinymoon_signature
     )
+
+    raw_body = (await request.body()).decode("utf-8")
+    try:
+        body_data = json.loads(raw_body) if raw_body else {}
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="request body must be JSON") from exc
+
+    try:
+        payload = ConfigCreateRequest.model_validate(body_data)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
 
     if payload.author_username != user or payload.author_xuid != xuid:
         raise HTTPException(status_code=403, detail="author identity mismatch")
